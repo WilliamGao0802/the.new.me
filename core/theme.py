@@ -213,7 +213,7 @@ div[data-testid="stChatMessage"][data-testid*="user"] { }
 .hsx-who { font-size: 11px; color: %(cream_faint)s; margin: 10px 0 0; }
 
 /* ============ 八、按钮（圆角胶囊，按压有感） ============ */
-.stButton > button, .stFormSubmitButton > button, .stDownloadButton > button {
+.stButton button, .stFormSubmitButton button, .stDownloadButton button {
   background: rgba(243,237,226,.08) !important; color: %(cream)s !important;
   border: 1px solid rgba(243,237,226,.16) !important;
   border-radius: 20px !important; font-size: 13.5px !important;
@@ -231,11 +231,11 @@ div[data-testid="stChatMessage"][data-testid*="user"] { }
 [data-testid="stHorizontalBlock"]:has(.st-key-mf_good) button {
   padding: 6px 0 !important;
 }
-.stButton > button:hover, .stFormSubmitButton > button:hover {
+.stButton button:hover, .stFormSubmitButton button:hover {
   border-color: rgba(255,214,143,.5) !important; color: %(gold_bright)s !important;
 }
-.stButton > button:active, .stFormSubmitButton > button:active { transform: scale(.975); }
-.stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"] {
+.stButton button:active, .stFormSubmitButton button:active { transform: scale(.975); }
+.stButton button[kind="primary"], .stFormSubmitButton button[kind="primary"] {
   background: linear-gradient(180deg, #ffdc96 0%%, #eeb862 100%%) !important;
   color: #4a3308 !important; border: none !important; font-weight: 600;
 }
@@ -269,16 +269,16 @@ div[data-testid="stHorizontalBlock"].hsx-tabs {
   background: rgba(13,18,38,.97); border-top: 1px solid rgba(255,214,143,.14);
   padding: 8px 10px 10px; gap: 4px; backdrop-filter: blur(10px);
 }
-.hsx-tabs .stButton > button {
+.hsx-tabs .stButton button {
   border: none !important; background: transparent !important;
   color: #8a90a8 !important; font-size: 12px !important; padding: 4px 0 !important;
   line-height: 1.35 !important; min-height: 46px;
 }
-.hsx-tabs .stButton > button:hover { color: %(gold_bright)s !important; }
-.hsx-tabs .stButton > button[kind="primary"] {
+.hsx-tabs .stButton button:hover { color: %(gold_bright)s !important; }
+.hsx-tabs .stButton button[kind="primary"] {
   background: transparent !important; color: %(gold)s !important; font-weight: 600;
 }
-.hsx-tabs .stButton > button p { font-size: 19px !important; margin: 0 0 1px !important; }
+.hsx-tabs .stButton button p { font-size: 19px !important; margin: 0 0 1px !important; }
 /* 底部 tab 三格等宽横排（同心情行的 nowrap 逻辑）。中文 key 会被转义成 --，
    所以用 [class*="st-key-tab_"] 子串匹配。 */
 [data-testid="stHorizontalBlock"]:has([class*="st-key-tab_"]) {
@@ -291,6 +291,21 @@ div[data-testid="stHorizontalBlock"].hsx-tabs {
 }
 [data-testid="stHorizontalBlock"]:has([class*="st-key-tab_"]) > div[data-testid="stColumn"] {
   min-width: 0 !important; flex: 1 1 0 !important;
+}
+/* tab 按钮本体：无边框纯文字（icon + 文案），选中变金 —— 与 uni-app tabBar 一致 */
+[data-testid="stHorizontalBlock"]:has([class*="st-key-tab_"]) .stButton button {
+  border: none !important; background: transparent !important;
+  color: #8a90a8 !important; font-size: 12px !important; padding: 4px 0 !important;
+  line-height: 1.35 !important; min-height: 46px; width: 100%%;
+}
+[data-testid="stHorizontalBlock"]:has([class*="st-key-tab_"]) .stButton button:hover {
+  color: %(gold_bright)s !important;
+}
+[data-testid="stHorizontalBlock"]:has([class*="st-key-tab_"]) .stButton button[kind="primary"] {
+  background: transparent !important; color: %(gold)s !important; font-weight: 600;
+}
+[data-testid="stHorizontalBlock"]:has([class*="st-key-tab_"]) .stButton button p {
+  font-size: 19px !important; margin: 0 0 1px !important;
 }
 
 /* ============ 十二、其它组件外观 ============ */
@@ -307,6 +322,180 @@ div[data-testid="stExpander"] {
 }
 hr { border-color: rgba(243,237,226,.08) !important; }
 .hsx-about { text-align:center; font-size: 11px; color: %(cream_faint)s; margin: 18px 0 6px; line-height: 1.8; }
+
+/* ============ 十三、全页固定星空（App 是 <sky> 固定在整页背后） ============ */
+.hsx-sky-fixed .hsx-sky { position: fixed !important; left: 0; right: 0; top: 0; height: 100vh !important; z-index: 0; }
+
+/* ============ 十四、走过的路（复刻 index.vue 的 road / node / link） ============ */
+.hsx-stage { position: relative; z-index: 2; }
+/* 关键：Streamlit 把 markdown 的 HTML 包在 stMarkdown > div 里，那层是 static。
+   路由容器必须自己建立定位上下文，否则内部 absolute 的节点会以更外层为参照，
+   全部塌到同一个角落 —— 这正是「蜡烛错位」的根因。 */
+.hsx-road {
+  position: relative !important;
+  display: block;
+  width: 480px; max-width: 100%%; margin: 0 auto;
+  overflow: hidden;
+  isolation: isolate;
+}
+.hsx-link {
+  position: absolute !important; height: 8px; border-radius: 4px;
+  transform-origin: 0 50%%; display: block;
+}
+.hsx-link-solid { background: #ffd68f; box-shadow: 0 0 12px 1px rgba(255,198,110,.55); }
+.hsx-link-dim { background: rgba(255,214,143,.16); }
+.hsx-node {
+  position: absolute !important; width: 48px; height: 48px; margin-left: -24px; margin-top: -24px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-decoration: none; cursor: pointer;
+}
+.hsx-node a.hsx-node, a.hsx-node:link, a.hsx-node:visited { text-decoration: none; }
+a.hsx-node:hover .flame { filter: brightness(1.2); }
+.hsx-node .flame {
+  width: 7.5px; height: 12px; background: #ffdc96;
+  border-radius: 50%% 50%% 50%% 50%% / 62%% 62%% 38%% 38%%;
+  box-shadow: 0 0 12px 2px rgba(255,196,100,.85);
+  animation: hsx-flicker 2.4s ease-in-out infinite;
+}
+.hsx-node .wax {
+  margin-top: 1px; width: 10px; height: 23px; border-radius: 3.5px;
+  background: linear-gradient(#fff8e6, #e8d3a8);
+  box-shadow: 0 0 7px rgba(255,214,143,.35);
+}
+@keyframes hsx-flicker {
+  0%%, 100%% { opacity: .85; transform: scaleY(1); }
+  50%% { opacity: 1; transform: scaleY(1.06); }
+}
+.hsx-node .dot {
+  width: 6px; height: 6px; border-radius: 50%%;
+  background: rgba(255,214,143,.14); border: 1px solid rgba(255,214,143,.22);
+}
+.hsx-node-label {
+  position: absolute; top: 100%%; left: 50%%; margin-left: -40px; width: 80px;
+  text-align: center; font-size: 10px; color: rgba(243,237,226,.45);
+  pointer-events: none;
+}
+
+/* ============ 十五、悬浮 ＋（index.vue 的 .fab） ============ */
+/* 注意：st.button(help=...) 会把 button 再包进 stTooltipHoverTarget > stTooltipIcon
+   两层 span，所以 `.stButton > button` 这类直接子代选择器全部落空。
+   定位锚点用 st-key-fab_*（落在 stElementContainer 上，不会被包层打断）。 */
+[class*="st-key-fab_"] {
+  position: fixed !important;
+  right: max(18px, calc(50%% - 240px + 20px)) !important;
+  bottom: 122px !important;
+  z-index: 900 !important;
+  width: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+[class*="st-key-fab_"] .stButton,
+[class*="st-key-fab_"] .stTooltipIcon,
+[class*="st-key-fab_"] .stTooltipHoverTarget { display: inline-flex !important; width: auto !important; }
+[class*="st-key-fab_"] button {
+  width: 58px !important; height: 58px !important; min-height: 58px !important;
+  border-radius: 50%% !important;
+  background: linear-gradient(140deg, #ffe0a3, #e5a94a) !important;
+  background-color: #f0bc63 !important;
+  color: #4a3308 !important;
+  font-size: 27px !important; font-weight: 600 !important;
+  line-height: 1 !important; padding: 0 !important;
+  /* 金色四周：外圈细金边 + 暖金光晕（App .fab 的 box-shadow 加强版） */
+  border: 2px solid #ffd68f !important;
+  box-shadow: 0 0 0 3px rgba(255,214,143,.22),
+              0 0 18px 4px rgba(255,198,110,.55),
+              0 8px 24px rgba(229,169,74,.45) !important;
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+[class*="st-key-fab_"] button:hover {
+  transform: scale(1.06);
+  box-shadow: 0 0 0 4px rgba(255,214,143,.3),
+              0 0 24px 7px rgba(255,198,110,.7),
+              0 10px 28px rgba(229,169,74,.5) !important;
+}
+[class*="st-key-fab_"] button p { font-size: 27px !important; line-height: 1 !important; margin: 0 !important; }
+
+/* ============ 十六、输入弹层卡（index.vue 的 .sheet 同款观感）与详情 ============ */
+/* 点 ＋ 后在路下方弹出。不用 fixed：心情胶囊/文本框是 Streamlit 组件，
+   塞不进同一个 HTML 容器，拆 fixed 层会互相重叠（实测踩坑）。 */
+.hsx-sheet-card {
+  position: relative; z-index: 3;
+  background: #151b33; border: 1px solid rgba(255,214,143,.14);
+  border-radius: 16px 16px 12px 12px; padding: 20px 20px 6px;
+  box-shadow: 0 -8px 40px rgba(0,0,0,.5); margin: 6px 0 0;
+}
+.hsx-sheet-title { font-size: 15px; color: %(cream)s; }
+.hsx-sheet-sub { font-size: 12px; color: %(cream_dim)s; margin: 6px 0 2px; }
+.hsx-detail {
+  position: relative; z-index: 3; background: #151b33;
+  border: 1px solid rgba(255,214,143,.14); border-radius: 14px;
+  padding: 22px 20px 18px; box-shadow: 0 10px 44px rgba(0,0,0,.55); margin: 10px 0;
+}
+.hsx-detail-tag { font-size: 12px; color: #f4c877; }
+.hsx-detail-time { margin-top: 5px; font-size: 12px; color: %(cream_dim)s; }
+.hsx-detail-text { margin-top: 12px; font-size: 14px; line-height: 1.85; color: #f6f2ea; word-break: break-all; }
+/* 心情胶囊：紧凑三列（同 App mood-bar 的观感） */
+[data-testid="stHorizontalBlock"]:has([class*="st-key-mchip_"]) {
+  flex-wrap: nowrap !important; margin: 4px 0 6px !important; gap: 6px !important;
+  position: relative; z-index: 3;
+}
+[data-testid="stHorizontalBlock"]:has([class*="st-key-mchip_"]) > div { min-width: 0 !important; flex: 1 1 0 !important; }
+[class*="st-key-mchip_"] button {
+  border-radius: 999px !important; padding: 5px 10px !important; font-size: 12.5px !important;
+  background: rgba(243,237,226,.08) !important; color: rgba(243,237,226,.55) !important;
+  border: 1px solid rgba(243,237,226,.1) !important; width: 100%%;
+}
+.st-key-write_diary, [class*="st-key-write_diary"] {
+  position: relative; z-index: 3;
+  background: #151b33; border: 1px solid rgba(255,214,143,.14); border-top: none;
+  border-radius: 0 0 16px 16px; padding: 0 20px 18px; margin-top: -2px;
+}
+.st-key-write_diary textarea, [class*="st-key-write_diary"] textarea {
+  background: #0f1428 !important; border: 1px solid rgba(243,237,226,.1) !important;
+  border-radius: 10px !important;
+}
+.hsx-detail-tag { font-size: 12px; color: #f4c877; }
+.hsx-detail-time { margin-top: 5px; font-size: 12px; color: %(cream_dim)s; }
+.hsx-detail-text { margin-top: 12px; font-size: 14px; line-height: 1.85; color: #f6f2ea; word-break: break-all; }
+.hsx-mood-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.st-key-mchip_ .stButton button, [class*="st-key-mchip_"] .stButton button {
+  border-radius: 999px !important; padding: 5px 12px !important; font-size: 12.5px !important;
+  background: rgba(243,237,226,.08) !important; color: rgba(243,237,226,.55) !important;
+  border: 1px solid rgba(243,237,226,.1) !important;
+}
+[class*="st-key-mchip_"].on .stButton button {
+  background: rgba(255,214,143,.18) !important; color: #ffd68f !important;
+  border-color: rgba(255,214,143,.4) !important;
+}
+.hsx-sheet-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+.hsx-counter { font-size: 12px; color: rgba(243,237,226,.35); }
+.hsx-sheet .stTextArea textarea { background: #0f1428 !important; border: none !important; border-radius: 10px !important; }
+
+/* ============ 十七、对话页：头部按钮 + 小知识 chip（chat.vue 同构） ============ */
+div[data-testid="stHorizontalBlock"]:has([class*="st-key-chead_"]) {
+  flex-wrap: nowrap !important; margin: 0 0 2px !important; gap: 6px !important;
+}
+div[data-testid="stHorizontalBlock"]:has([class*="st-key-chead_"]) > div { flex: 0 0 auto !important; width: auto !important; }
+div[data-testid="stHorizontalBlock"]:has([class*="st-key-chead_"]) .stButton button {
+  padding: 3px 12px !important; font-size: 12px !important; border-radius: 999px !important;
+  background: rgba(243,237,226,.06) !important;
+}
+.st-key-kchip_ .stButton button, [class*="st-key-kchip_"] .stButton button {
+  border: 1px dashed rgba(255,214,143,.35) !important; border-radius: 12px !important;
+  background: rgba(255,214,143,.07) !important; color: #f4c877 !important;
+  font-size: 12.5px !important; padding: 6px 12px !important; margin: 2px 0 4px;
+  text-align: left; width: fit-content; max-width: 100%%;
+}
+.hsx-kb-body {
+  background: %(card)s; border: 1px solid %(card_edge)s; border-radius: 12px;
+  padding: 10px 13px; font-size: 13px; line-height: 1.85; color: %(cream)s; margin: 0 0 8px;
+}
+.hsx-starters-title { font-size: 12.5px; color: %(cream_dim)s; margin: 8px 0 8px; }
+.hsx-starters-foot { font-size: 11px; color: %(cream_faint)s; margin: 6px 0 4px; }
+.st-key-starter_ .stButton button, [class*="st-key-starter_"] .stButton button {
+  border-radius: 12px !important; text-align: left !important; width: 100%%;
+  background: %(card)s !important; border: 1px solid rgba(255,255,255,.07) !important;
+}
 </style>
 """ % {
     "phone": PHONE_MAX,
@@ -356,21 +545,21 @@ div[data-testid="stMetric"] label { color: #857b68 !important; }
 div[data-testid="stMetricValue"] { color: #8a6a1f !important; }
 .stApp p, .stApp li, .stApp label, .stApp span { color: #3a342a; }
 h1, h2, h3, h4, h5 { color: #2b2519 !important; }
-.stButton > button, .stFormSubmitButton > button, .stDownloadButton > button {
+.stButton button, .stFormSubmitButton button, .stDownloadButton button {
   background: #ffffff !important; color: #3a342a !important; border: 1px solid #e3d9c6 !important;
 }
-.stButton > button:hover, .stFormSubmitButton > button:hover {
+.stButton button:hover, .stFormSubmitButton button:hover {
   border-color: #e2b968 !important; color: #8a6a1f !important;
 }
-.stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"] {
+.stButton button[kind="primary"], .stFormSubmitButton button[kind="primary"] {
   background: linear-gradient(180deg, #ffe1a4 0%, #f2c774 100%) !important;
   color: #4a3308 !important; border: none !important;
 }
 div[data-testid="stHorizontalBlock"].hsx-tabs {
   background: rgba(255,255,255,.97) !important; border-top: 1px solid #ece4d4 !important;
 }
-.hsx-tabs .stButton > button { background: transparent !important; color: #9c9280 !important; border: none !important; }
-.hsx-tabs .stButton > button[kind="primary"] { background: transparent !important; color: #b8860b !important; }
+.hsx-tabs .stButton button { background: transparent !important; color: #9c9280 !important; border: none !important; }
+.hsx-tabs .stButton button[kind="primary"] { background: transparent !important; color: #b8860b !important; }
 .stTextInput input, .stTextArea textarea, .stNumberInput input {
   background: #ffffff !important; color: #3a342a !important; border-color: #e3d9c6 !important;
 }
@@ -440,3 +629,55 @@ def moods_bar(picked=""):
         cls = "m" + (" on" if picked == mid else " off")
         cells.append('<button class="%s" style="background:%s">%s</button>' % (cls, color, face))
     return '<div class="hsx-moods">%s</div>' % "".join(cells)
+
+
+def zoom_css(scale):
+    """字号档位真正生效：整体等比缩放内容栏（与 App 的 --hs-fs 同语义）。
+
+    App 端是 CSS 变量乘进每处 font-size；Streamlit 的字号散在各组件默认值里，
+    逐处覆盖不现实，用 zoom 等价达成（Chrome/Edge/Safari 均支持）。
+    scale=1 时不输出。
+    """
+    if not scale or abs(scale - 1.0) < 0.01:
+        return ""
+    return ("<style>.block-container{ zoom: %s; }</style>" % round(scale, 3))
+
+
+def road_html(road, detail_map):
+    """把 build_road 的结果拼成 App 首页那条路。
+
+    road: core/road.build_road 输出；detail_map: {key: detail}（节点点击后展示）。
+    有内容的节点包成 <a href="?node=key">（点击进详情弹层），暗点不可点。
+
+    ⚠️ 两处必须内联写死，否则「蜡烛错位」：
+       ① 容器自身 position:relative —— 祖先全是 static，absolute 子元素会往上找到
+          stElementContainer 之类的近亲当参照，结果七根蜡烛全叠在同一个角；
+       ② 容器 height —— 子元素全是 absolute，不写高度容器塌成 0，路就被裁掉。
+    全部动态文本由调用方保证已转义 —— detail_map 的 key 是自造 id，可直接拼。
+    """
+    import html as _h
+    parts = ['<div class="hsx-road" style="position:relative;display:block;'
+             'height:%dpx;width:480px;max-width:100%%;margin:0 auto;overflow:hidden;'
+             'isolation:isolate">' % round(road["stage_height"])]
+    for ln in road["links"]:
+        parts.append(
+            '<div class="hsx-link %s" style="position:absolute;left:%.1fpx;top:%.1fpx;'
+            'width:%dpx;transform:rotate(%ddeg)"></div>'
+            % ("hsx-link-solid" if ln["solid"] else "hsx-link-dim",
+               ln["left"], ln["top"], ln["len"], ln["angle"]))
+    for nd in road["nodes"]:
+        key = _h.escape(str(nd["key"]), quote=True)
+        pos = "position:absolute;left:%.1fpx;top:%.1fpx;" % (nd["left"], nd["top"])
+        if nd["kind"] == "vacant":
+            inner = '<div class="dot"></div>'
+            open_tag = '<div class="hsx-node" style="%s">' % pos
+            close_tag = "</div>"
+        else:
+            inner = '<div class="flame"></div><div class="wax"></div>'
+            open_tag = '<a class="hsx-node" style="%s" href="?node=%s">' % (pos, key)
+            close_tag = "</a>"
+        label = '<div class="hsx-node-label">%s</div>' % _h.escape(str(nd.get("label") or "")) \
+            if nd.get("label") else ""
+        parts.append('%s%s%s%s' % (open_tag, inner, label, close_tag))
+    parts.append("</div>")
+    return "".join(parts)

@@ -27,10 +27,10 @@ import streamlit as st
 from core import avatar as av
 from core import chatflow, companion, safety, theme
 from core import memory as memmod
-from core import moodcurve
+from core import moodcurve, road
 from core.cloud import CloudClient, CloudError, memory_cloud
 
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 GATE_SECONDS = int(os.environ.get("HSX_GATE_SECONDS", "300"))
 SOURCE = "st"
 AVATAR_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "avatars")
@@ -217,15 +217,15 @@ def _generate(prompt, placeholder):
             st.session_state.mem_storage[memmod.MEM_KEY] = res["memory"]
             store.push_cloud(res["memory"])
 
-    # ⑤ 本轮小知识卡（危机不挂，危机卡是干预指引不是知识）
-    kb_note = ""
+    # ⑤ 本轮小知识卡（危机不挂，危机卡是干预指引不是知识）—— 带正文，对话页可展开
+    kb_card = None
     if analysis["mood"] != "crisis" and cards:
-        kb_note = cards[0]["title"]
+        kb_card = {"title": cards[0].get("title", ""), "body": cards[0].get("body", "")}
 
     _persist_msg("user", prompt)
     _persist_msg("ai", full)
     cli.track("chat_turn", {"mood": analysis.get("mood", "")}, platform=SOURCE)
-    return full, (note or kb_note)
+    return full, note, kb_card
 
 
 # ============================ 登录 ============================
@@ -298,77 +298,89 @@ def _render_gate():
 # ============================ 页面一：书写 ============================
 
 def _page_index():
+    """App 首页同构：标题 → 一条蜿蜒的路（蜡烛=心里话）→ FAB ＋ → 输入弹层。
+
+    视图对齐说明：此前这页是普通表单（今日卡+心情行+文本框），和 App 完全不像；
+    现在整页就是 App 那条路。点蜡烛看详情、点 ＋ 写一条，交互口径也一致。
+    """
     ss = st.session_state
     diaries = _all_diaries()
 
-    st.markdown(theme.sky_html(560), unsafe_allow_html=True)
     st.markdown(theme.hero("今天，心里是什么天气？", "点亮一支蜡烛，路就会往前长一点"),
                 unsafe_allow_html=True)
 
-    # 今日卡：已写 / 还没写
-    today = datetime.now().strftime("%m-%d")
-    today_items = [d for d in diaries
-                   if datetime.fromtimestamp((d.get("ts") or 0) / 1000).strftime("%m-%d") == today]
-    if today_items:
-        st.markdown(theme.card("今天已经点过灯了",
-                               [theme.p("今天写下了 %d 条。再写一条也可以，路会接着长。" % len(today_items))]),
-                    unsafe_allow_html=True)
-    else:
-        st.markdown(
-            '<div class="hsx-card"><div class="hsx-today"><div class="num">%d</div>'
-            '<div class="txt">条记录已经在这条路上。<br>今天还没有点灯。</div></div></div>'
-            % len(diaries), unsafe_allow_html=True)
+    # ---- 悬浮 ＋ → 输入卡（App 的 .sheet 同构） ----
+    # 注意：不要给这个按钮加 help= —— 加了会被包进 tooltip 层，点击事件被接管。
+    # 输入卡放在路的**上方**：路有 1000px+ 高，放下面首屏看不到，等于没弹出来。
+    c, _ = st.columns([1, 6])
+    if c.button("＋" if not ss.get("show_input") else "×", key="fab_plus"):
+        ss.show_input = not ss.get("show_input", False)
+        st.rerun()
+    if ss.get("show_input"):
+        _render_write_sheet()
 
-    # ---- 写一条 ----
-    st.markdown('<div class="hsx-sub">此刻心里在想什么？（想记心情就点一个，不想点也完全没关系）</div>',
+    # ---- 铺路（core/road.py 与 App 端 road.js 同源） ----
+    entries = road.load_entries(diaries)
+    for e in entries:
+        if not e["label"]:
+            ts = e.get("ts") or 0
+            e["label"] = time.strftime("%m/%d", time.localtime(ts / 1000)) if ts else ""
+    rd = road.build_road(entries)
+    st.markdown(theme.road_html(rd, {}), unsafe_allow_html=True)
+
+    # ---- 蜡烛详情（App 的 .detail 弹层同构：点路上的蜡烛 → ?node=key） ----
+    node_key = st.query_params.get("node")
+    if node_key:
+        hit = next((e for e in entries if e["key"] == node_key), None)
+        if hit:
+            ts = hit.get("ts") or 0
+            when = time.strftime("%m-%d %H:%M", time.localtime(ts / 1000)) if ts else ""
+            face = moodcurve.mood_face(hit.get("mood", "")) or ""
+            st.markdown(
+                '<div class="hsx-detail"><div class="hsx-detail-tag">这一条写在</div>'
+                '<div class="hsx-detail-time">%s</div>'
+                '<div class="hsx-detail-text">%s %s</div></div>'
+                % (_esc(when), face, _esc(hit.get("content") or "（只记了心情）")),
+                unsafe_allow_html=True)
+            if st.button("知道了"):
+                del st.query_params["node"]
+                st.rerun()
+        else:
+            del st.query_params["node"]
+
+
+def _render_write_sheet():
+    """写一条：点 ＋ 后在路下方弹出的输入卡（样式对齐 App 的 .sheet）。
+
+    为什么不用 fixed 浮层：心情胶囊和文本框是 Streamlit 组件，无法塞进同一个
+    HTML 容器；拆成多个 fixed 层会互相重叠（实测文本框被标题卡盖住）。
+    正常流渲染 + 卡片样式，观感一致且零重叠。
+    """
+    ss = st.session_state
+    st.markdown('<div class="hsx-sheet-card">'
+                '<div class="hsx-sheet-title">此刻心里在想什么？</div>'
+                '<div class="hsx-sheet-sub">想记心情就点一个，不想点也完全没关系</div></div>',
                 unsafe_allow_html=True)
     picked = ss.get("picked_mood", "")
-    cols = st.columns(6)
-    for i, (mid, _face, name, _color) in enumerate(theme.MOODS):
+    cols = st.columns(3)
+    for i, (mid, face, name, _color) in enumerate(theme.MOODS):
         on = picked == mid
-        # aria-label = "选择 还不错" 等（help 参数同时生成 tooltip 与 aria-label）。
-        # theme.CSS 里用 [aria-label^=选择] 定位这一行，强制六列不折行。
-        if cols[i].button("●" if on else "○", key="mf_" + mid,
-                          width="stretch", help=("取消选择 " if on else "选择 ") + name,
-                          type=("primary" if on else "secondary")):
+        if cols[i % 3].button("%s %s" % (face, name), key="mchip_" + mid,
+                              width="stretch", type=("primary" if on else "secondary")):
             ss.picked_mood = "" if on else mid
             st.rerun()
-    if picked:
-        st.caption("已选：%s（轻点再点一次可取消）" % moodcurve.mood_name(picked))
-
     with st.form("write_diary", clear_on_submit=True):
-        content = st.text_area("写下来", height=120,
-                               placeholder="写下来就好，不用讲道理。", label_visibility="collapsed")
+        content = st.text_area("写下来", height=110, max_chars=500,
+                               placeholder="写下来就好，不用讲道理。",
+                               label_visibility="collapsed")
         ok = st.form_submit_button("点亮蜡烛", type="primary", width="stretch")
     if ok:
-        if not (content or "").strip() and not picked:
+        if not (content or "").strip() and not ss.get("picked_mood"):
             st.warning("写一句，或者点一个心情都行。")
         else:
-            _save_diary(content, picked)
+            _save_diary(content, ss.get("picked_mood", ""))
             st.success("收好了。")
             st.rerun()
-
-    # ---- 七日心情带 ----
-    series = moodcurve.week_mood_series(diaries)
-    st.markdown('<div class="hsx-sub">这七天</div>', unsafe_allow_html=True)
-    st.markdown(theme.band(series), unsafe_allow_html=True)
-    summary = moodcurve.week_mood_summary(series, len(diaries))
-    st.markdown('<div class="hsx-faint">%s</div>' % _esc(moodcurve.week_mood_caption(summary)),
-                unsafe_allow_html=True)
-
-    # ---- 最近写的 ----
-    st.markdown('<div class="hsx-sub">最近写的</div>', unsafe_allow_html=True)
-    if not diaries:
-        st.markdown(theme.card("", [theme.p("还没有。写一条试试。")]), unsafe_allow_html=True)
-    else:
-        for it in diaries[:8]:
-            ts = it.get("ts") or it.get("createdAt") or 0
-            when = time.strftime("%m-%d %H:%M", time.localtime(ts / 1000)) if ts else ""
-            face = moodcurve.mood_face(it.get("mood", "")) or "·"
-            st.markdown(
-                '<div class="hsx-card mini"><p>%s %s</p><p class="kv">%s</p></div>'
-                % (face, _esc(it.get("content") or "（只记了心情）"), _esc(when)),
-                unsafe_allow_html=True)
 
 
 def _save_diary(content, mood_id):
@@ -377,6 +389,7 @@ def _save_diary(content, mood_id):
     entry = {"id": ts, "ts": ts, "content": (content or "").strip(), "mood": mood_id or ""}
     ss.diary_local = list(ss.get("diary_local", [])) + [entry]
     ss.picked_mood = ""
+    ss.show_input = False
     if _signed_in():
         try:
             ss.cloud.db_insert("diary_entries", [{
@@ -394,12 +407,20 @@ def _save_diary(content, mood_id):
 
 def _page_chat():
     ss = st.session_state
-    st.markdown(theme.sky_html(520), unsafe_allow_html=True)
     st.markdown(theme.hero("有人在听", "不评判 · 不打断 · 随时可以走"), unsafe_allow_html=True)
 
     if _gate_blocked():
         _render_gate()
         return
+
+    # 头部右上：求助 / 清空（与 chat.vue 的 head-btn 同位同级，小胶囊按钮）
+    _sp, h2, h3 = st.columns([6, 1, 1])
+    if h2.button("求助", key="chead_help"):
+        ss.show_help = not ss.get("show_help", False)
+    if h3.button("清空", key="chead_clear"):
+        ss.messages = []
+        ss.chat_state = companion.create_state()
+        st.rerun()
 
     # 形象：顶部中央（与手机端一致）。用 base64 内联 + text-align:center，
     # 因为 st.image 在窄列里始终左对齐，靠 CSS 拗不过它。
@@ -420,34 +441,40 @@ def _page_chat():
            else "正在用本地陪伴"),
         unsafe_allow_html=True)
 
-    if not ss.messages:
-        st.markdown('<div class="hsx-sub">不知道从哪说起也没关系，点一句也行：</div>',
-                    unsafe_allow_html=True)
-        starters = companion.pick_starters()
-        for i, s in enumerate(starters):
-            if st.button(s, key="st_" + str(i), width="stretch"):
-                ss.pending_prompt = s
-                st.rerun()
-
-    # 历史消息：用户右侧金气泡，星寻左侧深卡（对齐手机聊天页）
-    for m in ss.messages:
-        if m["role"] == "user":
-            st.markdown('<div class="hsx-bubble-me">%s</div>' % _esc(m["text"]), unsafe_allow_html=True)
-        else:
-            st.markdown('<div class="hsx-bubble-ai">%s</div>' % _esc(m["text"]), unsafe_allow_html=True)
-            if m.get("note"):
-                st.markdown('<div class="hsx-who">· %s</div>' % _esc(m["note"]), unsafe_allow_html=True)
-
-    b1, b2 = st.columns(2)
-    if b1.button("求助", width="stretch"):
+    if ss.get("show_help"):
         card = companion.help_card()
         ss.cloud.track("referral_hotline", {"from": "chat_help"}, platform=SOURCE)
         st.markdown(theme.card(card["title"], [theme.p(card["text"])]), unsafe_allow_html=True)
         st.caption("12356 全国统一心理援助热线 · 24 小时 · 免费匿名；紧急情况请直接拨 120。")
-    if b2.button("清空", width="stretch"):
-        ss.messages = []
-        ss.chat_state = companion.create_state()
-        st.rerun()
+
+    if not ss.messages:
+        st.markdown('<div class="hsx-starters-title">不知道从哪说起的话，点一句试试：</div>',
+                    unsafe_allow_html=True)
+        starters = companion.pick_starters()
+        for i, s in enumerate(starters):
+            if st.button(s, key="starter_%d" % i, width="stretch"):
+                ss.pending_prompt = s
+                st.rerun()
+        st.markdown('<div class="hsx-starters-foot">也可以什么都不说，关掉就好</div>',
+                    unsafe_allow_html=True)
+
+    # 历史消息：用户右侧金气泡，星寻左侧深卡（对齐手机聊天页）
+    for mi, m in enumerate(ss.messages):
+        if m["role"] == "user":
+            st.markdown('<div class="hsx-bubble-me">%s</div>' % _esc(m["text"]), unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="hsx-bubble-ai">%s</div>' % _esc(m["text"]), unsafe_allow_html=True)
+            kb = m.get("kb")
+            if kb and kb.get("title"):
+                if st.button("✦ 心理学小知识 · %s" % kb["title"],
+                             key="kchip_%d" % mi):
+                    ss["kbopen_%d" % mi] = not ss.get("kbopen_%d" % mi, False)
+                    st.rerun()
+                if ss.get("kbopen_%d" % mi):
+                    st.markdown('<div class="hsx-kb-body">%s</div>' % _esc(kb.get("body", "")),
+                                unsafe_allow_html=True)
+            if m.get("note"):
+                st.markdown('<div class="hsx-who">· %s</div>' % _esc(m["note"]), unsafe_allow_html=True)
 
     prompt = st.chat_input("说点什么…（不用组织语言）")
     if not prompt and ss.get("pending_prompt"):
@@ -458,11 +485,11 @@ def _page_chat():
         st.markdown('<div class="hsx-bubble-me">%s</div>' % _esc(prompt), unsafe_allow_html=True)
         placeholder = st.empty()
         placeholder.markdown('<div class="hsx-bubble-ai">…</div>', unsafe_allow_html=True)
-        text, note = _generate(prompt, placeholder)
+        text, note, kb_card = _generate(prompt, placeholder)
         placeholder.markdown('<div class="hsx-bubble-ai">%s</div>' % _esc(text), unsafe_allow_html=True)
         if note and note != "extreme":
             st.markdown('<div class="hsx-who">· %s</div>' % _esc(note), unsafe_allow_html=True)
-        ss.messages.append({"role": "ai", "text": text, "note": note})
+        ss.messages.append({"role": "ai", "text": text, "note": note, "kb": kb_card})
         st.rerun()
 
 
@@ -470,7 +497,6 @@ def _page_chat():
 
 def _page_mine():
     ss = st.session_state
-    st.markdown(theme.sky_html(420), unsafe_allow_html=True)
     st.markdown(theme.hero("我的", "星寻对我的了解，都在这儿"), unsafe_allow_html=True)
 
     # ---- 账号 ----
@@ -622,11 +648,16 @@ def _tabbar():
 
 
 def render():
+    _boot()
     light = os.environ.get("HSX_THEME", "dark").lower() == "light"
     st.markdown(theme.CSS, unsafe_allow_html=True)
     if light:
         st.markdown(theme.LIGHT_CSS, unsafe_allow_html=True)
-    _boot()
+    # 全页固定星空（App 的 <sky> 是固定在整页背后的，不随内容滚动消失）
+    st.markdown('<div class="hsx-sky-fixed">%s</div>' % theme.sky_html(640),
+                unsafe_allow_html=True)
+    # 字号档位真正生效（此前按钮只改了 session 值、没作用于界面）
+    st.markdown(theme.zoom_css(st.session_state.font_scale), unsafe_allow_html=True)
 
     page = st.session_state.page
     if page == "书写":
